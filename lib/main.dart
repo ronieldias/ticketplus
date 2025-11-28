@@ -1,125 +1,231 @@
 import 'package:flutter/material.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:geolocator/geolocator.dart'; // Para calculo de distancia
+import 'package:sqflite/sqflite.dart';
+import 'database_helper.dart';
+import 'models/estabelecimento.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
-
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        useMaterial3: true,
-      ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      title: 'TicketPlus',
+      theme: ThemeData(useMaterial3: true, colorSchemeSeed: Colors.deepPurple),
+      home: const LoginScreen(), // Começa no Login
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
-
+// --- TELA DE LOGIN SIMPLES ---
+class LoginScreen extends StatelessWidget {
+  const LoginScreen({super.key});
   @override
-  State<MyHomePage> createState() => _MyHomePageState();
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: ElevatedButton(
+          child: const Text("Entrar (Login Simulado)"),
+          onPressed: () {
+            // Em um app real, verificariamos a tabela 'usuarios' aqui
+            Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const MapaPrincipal()));
+          },
+        ),
+      ),
+    );
+  }
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
+// --- TELA DO MAPA (PRINCIPAL) ---
+class MapaPrincipal extends StatefulWidget {
+  const MapaPrincipal({super.key});
+  @override
+  State<MapaPrincipal> createState() => _MapaPrincipalState();
+}
 
-  void _incrementCounter() {
+class _MapaPrincipalState extends State<MapaPrincipal> {
+  GoogleMapController? mapController;
+  final LatLng _posicaoInicial = const LatLng(-5.088544, -42.811238); // Exemplo do PDF (IFPI) [cite: 30]
+  Set<Marker> _marcadores = {}; // Conjunto de marcadores [cite: 21]
+  List<Estabelecimento> _todosEstabelecimentos = [];
+
+  // Filtros
+  double _raioKm = 10.0;
+  String _busca = "";
+
+  @override
+  void initState() {
+    super.initState();
+    _carregarDados(); // Carrega marcadores ao iniciar [cite: 12]
+  }
+
+  // Função para buscar dados do SQLite e criar marcadores
+  Future<void> _carregarDados() async {
+    final db = await DatabaseHelper().database;
+    final List<Map<String, dynamic>> maps = await db.query('estabelecimentos');
+
     setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
+      _todosEstabelecimentos = List.generate(maps.length, (i) => Estabelecimento.fromMap(maps[i]));
+      _atualizarMarcadores();
     });
+  }
+
+  void _atualizarMarcadores() {
+    Set<Marker> novosMarcadores = {};
+    for (var est in _todosEstabelecimentos) {
+      // Filtro simples de distância (usando Geolocator ou calculo manual)
+      // Aqui aplicamos apenas se a busca por nome bater
+      if (_busca.isEmpty || est.nome.toLowerCase().contains(_busca.toLowerCase())) {
+        novosMarcadores.add(
+          Marker(
+            markerId: MarkerId(est.id.toString()),
+            position: LatLng(est.latitude, est.longitude),
+            // A ação de clique vai DENTRO do InfoWindow
+            infoWindow: InfoWindow(
+              title: est.nome,
+              snippet: "Clique para editar",
+              onTap: () => _abrirFormulario(estabelecimento: est), // <--- Corrigido
+            ),
+          ),
+        );
+      }
+    }
+    setState(() {
+      _marcadores = novosMarcadores;
+    });
+  }
+
+  void _onMapCreated(GoogleMapController controller) {
+    mapController = controller; // [cite: 57, 267]
+  }
+
+  // Interação com o mapa para criar novo [Requisito: Cadastro interagindo com mapa]
+  void _onMapTap(LatLng position) {
+    _abrirFormulario(latLong: position);
+  }
+
+  void _abrirFormulario({Estabelecimento? estabelecimento, LatLng? latLong}) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => FormularioEstabelecimento(
+          estabelecimento: estabelecimento,
+          posicaoInicial: latLong,
+        ),
+      ),
+    );
+    _carregarDados(); // Recarrega ao voltar
   }
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
     return Scaffold(
       appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
-      ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            const Text(
-              'You have pushed the button this many times:',
+        title: const Text("TicketPlus"),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(60),
+          child: Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: TextField(
+              decoration: const InputDecoration(
+                hintText: "Buscar estabelecimento...",
+                fillColor: Colors.white, filled: true,
+                border: OutlineInputBorder(),
+              ),
+              onChanged: (val) {
+                _busca = val;
+                _atualizarMarcadores();
+              },
             ),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-          ],
+          ),
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
+      body: GoogleMap(
+        onMapCreated: _onMapCreated, // [cite: 54]
+        initialCameraPosition: CameraPosition(target: _posicaoInicial, zoom: 14.0), // [cite: 56]
+        markers: _marcadores, // [cite: 60]
+        onTap: _onMapTap, // Clique longo ou tap para adicionar
+        myLocationEnabled: true, // [cite: 55]
+      ),
+    );
+  }
+}
+
+// --- TELA DE CADASTRO/EDIÇÃO ---
+class FormularioEstabelecimento extends StatefulWidget {
+  final Estabelecimento? estabelecimento;
+  final LatLng? posicaoInicial;
+
+  const FormularioEstabelecimento({super.key, this.estabelecimento, this.posicaoInicial});
+
+  @override
+  State<FormularioEstabelecimento> createState() => _FormularioEstabelecimentoState();
+}
+
+class _FormularioEstabelecimentoState extends State<FormularioEstabelecimento> {
+  final _formKey = GlobalKey<FormState>();
+  final _nomeController = TextEditingController();
+  int _bandeiraId = 1; // Default
+  int _categoriaId = 1; // Default
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.estabelecimento != null) {
+      _nomeController.text = widget.estabelecimento!.nome;
+      _bandeiraId = widget.estabelecimento!.idBandeira;
+      _categoriaId = widget.estabelecimento!.idCategoria;
+    }
+  }
+
+  Future<void> _salvar() async {
+    final db = await DatabaseHelper().database;
+    final lat = widget.estabelecimento?.latitude ?? widget.posicaoInicial!.latitude;
+    final lng = widget.estabelecimento?.longitude ?? widget.posicaoInicial!.longitude;
+
+    final novoEst = Estabelecimento(
+      id: widget.estabelecimento?.id,
+      nome: _nomeController.text,
+      latitude: lat,
+      longitude: lng,
+      idBandeira: _bandeiraId,
+      idCategoria: _categoriaId,
+    );
+
+    if (widget.estabelecimento == null) {
+      await db.insert('estabelecimentos', novoEst.toMap());
+    } else {
+      await db.update('estabelecimentos', novoEst.toMap(), where: 'id = ?', whereArgs: [novoEst.id]);
+    }
+    if (mounted) Navigator.pop(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text(widget.estabelecimento == null ? "Novo Local" : "Editar Local")),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            children: [
+              Text("Localização: ${widget.estabelecimento?.latitude ?? widget.posicaoInicial?.latitude}"),
+              TextFormField(
+                controller: _nomeController,
+                decoration: const InputDecoration(labelText: "Nome do Estabelecimento"),
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton(onPressed: _salvar, child: const Text("Salvar"))
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
