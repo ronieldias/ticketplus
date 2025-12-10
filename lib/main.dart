@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:sqflite/sqflite.dart';
 import 'database_helper.dart';
 import 'models/estabelecimento.dart';
 import 'screens/login_screen.dart';
+import 'screens/form_screen.dart'; // <--- Importamos o novo formulário
 import 'session_manager.dart';
 
 void main() async {
@@ -23,7 +23,6 @@ class MyApp extends StatelessWidget {
   }
 }
 
-// --- TELA DO MAPA (PRINCIPAL) ---
 class MapaPrincipal extends StatefulWidget {
   const MapaPrincipal({super.key});
   @override
@@ -36,7 +35,6 @@ class _MapaPrincipalState extends State<MapaPrincipal> {
   Set<Marker> _marcadores = {}; 
   List<Estabelecimento> _todosEstabelecimentos = [];
 
-  // Filtros
   String _busca = "";
 
   @override
@@ -46,15 +44,13 @@ class _MapaPrincipalState extends State<MapaPrincipal> {
   }
 
   Future<void> _carregarDados() async {
-    // Agora usamos o método especial que já traz as bandeiras
     final dados = await DatabaseHelper().buscarTodosEstabelecimentos();
 
     setState(() {
       _todosEstabelecimentos = List.generate(dados.length, (i) {
-        // Converte o Map do banco para o Objeto usando o helper
         return Estabelecimento.fromMap(
           dados[i], 
-          dados[i]['bandeirasIds'] // Passa a lista de IDs de bandeiras
+          dados[i]['bandeirasIds'] 
         );
       });
       _atualizarMarcadores();
@@ -91,17 +87,18 @@ class _MapaPrincipalState extends State<MapaPrincipal> {
     _abrirFormulario(latLong: position);
   }
 
+  // Agora chama o FormScreen que está no ficheiro separado
   void _abrirFormulario({Estabelecimento? estabelecimento, LatLng? latLong}) async {
     await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => FormularioEstabelecimento(
+        builder: (context) => FormScreen(
           estabelecimento: estabelecimento,
           posicaoInicial: latLong,
         ),
       ),
     );
-    _carregarDados(); // Recarrega ao voltar
+    _carregarDados(); // Recarrega o mapa ao voltar
   }
 
   @override
@@ -143,83 +140,6 @@ class _MapaPrincipalState extends State<MapaPrincipal> {
         markers: _marcadores, 
         onTap: _onMapTap, 
         myLocationEnabled: true, 
-      ),
-    );
-  }
-}
-
-// --- TELA DE CADASTRO/EDIÇÃO (PROVISÓRIA PARA COMPILAR) ---
-// Na próxima fase vamos melhorar este formulário com os checkboxes
-class FormularioEstabelecimento extends StatefulWidget {
-  final Estabelecimento? estabelecimento;
-  final LatLng? posicaoInicial;
-
-  const FormularioEstabelecimento({super.key, this.estabelecimento, this.posicaoInicial});
-
-  @override
-  State<FormularioEstabelecimento> createState() => _FormularioEstabelecimentoState();
-}
-
-class _FormularioEstabelecimentoState extends State<FormularioEstabelecimento> {
-  final _formKey = GlobalKey<FormState>();
-  final _nomeController = TextEditingController();
-  int _categoriaId = 1; // Default
-  // Nota: Ainda não colocamos a UI das bandeiras aqui para não complicar este passo.
-  // O app vai salvar, mas sem bandeiras por enquanto.
-  
-  @override
-  void initState() {
-    super.initState();
-    if (widget.estabelecimento != null) {
-      _nomeController.text = widget.estabelecimento!.nome;
-      _categoriaId = widget.estabelecimento!.idCategoria;
-    }
-  }
-
-  Future<void> _salvar() async {
-    final lat = widget.estabelecimento?.latitude ?? widget.posicaoInicial!.latitude;
-    final lng = widget.estabelecimento?.longitude ?? widget.posicaoInicial!.longitude;
-
-    final estData = {
-      'id': widget.estabelecimento?.id, // Null se for novo
-      'nome': _nomeController.text,
-      'latitude': lat,
-      'longitude': lng,
-      'id_categoria': _categoriaId,
-      'criado_por': SessionManager().usuarioLogadoId,
-    };
-
-    // Por enquanto salvamos com lista vazia de bandeiras, pois a UI não existe ainda
-    List<int> bandeirasSelecionadas = widget.estabelecimento?.bandeirasIds ?? [];
-
-    if (widget.estabelecimento == null) {
-      await DatabaseHelper().inserirEstabelecimento(estData, bandeirasSelecionadas);
-    } else {
-      await DatabaseHelper().atualizarEstabelecimento(estData, bandeirasSelecionadas);
-    }
-    
-    if (mounted) Navigator.pop(context);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(widget.estabelecimento == null ? "Novo Local" : "Editar Local")),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            children: [
-              TextFormField(
-                controller: _nomeController,
-                decoration: const InputDecoration(labelText: "Nome do Estabelecimento"),
-              ),
-              const SizedBox(height: 20),
-              ElevatedButton(onPressed: _salvar, child: const Text("Salvar (Simplificado)"))
-            ],
-          ),
-        ),
       ),
     );
   }
