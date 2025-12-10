@@ -18,11 +18,9 @@ class _FormScreenState extends State<FormScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nomeController = TextEditingController();
   
-  // Dados auxiliares carregados do banco
   List<Map<String, dynamic>> _todasCategorias = [];
   List<Map<String, dynamic>> _todasBandeiras = [];
   
-  // Estado do formulário
   int? _categoriaSelecionadaId;
   final List<int> _bandeirasSelecionadasIds = [];
   bool _isLoading = true;
@@ -35,18 +33,14 @@ class _FormScreenState extends State<FormScreen> {
 
   Future<void> _carregarDadosIniciais() async {
     final db = await DatabaseHelper().database;
-    
-    // 1. Carrega listas de opções
     final cats = await db.query('categorias');
     final bands = await db.query('bandeiras');
 
-    // 2. Se for edição, preenche os campos
     if (widget.estabelecimento != null) {
       _nomeController.text = widget.estabelecimento!.nome;
       _categoriaSelecionadaId = widget.estabelecimento!.idCategoria;
       _bandeirasSelecionadasIds.addAll(widget.estabelecimento!.bandeirasIds);
     } else if (cats.isNotEmpty) {
-      // Se for novo, seleciona a primeira categoria por padrão
       _categoriaSelecionadaId = cats.first['id'] as int;
     }
 
@@ -64,9 +58,8 @@ class _FormScreenState extends State<FormScreen> {
     final lat = widget.estabelecimento?.latitude ?? widget.posicaoInicial!.latitude;
     final lng = widget.estabelecimento?.longitude ?? widget.posicaoInicial!.longitude;
 
-    // Prepara o mapa de dados
     final estData = {
-      'id': widget.estabelecimento?.id, // Null se for novo
+      'id': widget.estabelecimento?.id,
       'nome': _nomeController.text,
       'latitude': lat,
       'longitude': lng,
@@ -81,8 +74,33 @@ class _FormScreenState extends State<FormScreen> {
     }
     
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Local salvo com sucesso!")));
-      Navigator.pop(context); // Volta para o mapa
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Local salvo!")));
+      Navigator.pop(context);
+    }
+  }
+
+  // --- FUNÇÃO DE DELETAR ---
+  Future<void> _deletar() async {
+    if (widget.estabelecimento == null) return;
+
+    // Confirmação
+    final confirmar = await showDialog<bool>(
+      context: context, 
+      builder: (ctx) => AlertDialog(
+        title: const Text("Excluir Local?"),
+        content: const Text("Essa ação não pode ser desfeita."),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancelar")),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text("Excluir", style: TextStyle(color: Colors.red))),
+        ],
+      )
+    );
+
+    if (confirmar == true) {
+      await DatabaseHelper().deletarEstabelecimento(widget.estabelecimento!.id!);
+      if (mounted) {
+        Navigator.pop(context); // Volta para o mapa
+      }
     }
   }
 
@@ -91,6 +109,11 @@ class _FormScreenState extends State<FormScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.estabelecimento == null ? "Novo Local" : "Editar Local"),
+        actions: [
+           // Opção extra de deletar na barra superior também, se desejar
+           if (widget.estabelecimento != null)
+             IconButton(icon: const Icon(Icons.delete), onPressed: _deletar),
+        ],
       ),
       body: _isLoading 
         ? const Center(child: CircularProgressIndicator())
@@ -101,18 +124,13 @@ class _FormScreenState extends State<FormScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // --- Nome ---
                   TextFormField(
                     controller: _nomeController,
-                    decoration: const InputDecoration(
-                      labelText: "Nome do Estabelecimento",
-                      border: OutlineInputBorder(),
-                    ),
+                    decoration: const InputDecoration(labelText: "Nome", border: OutlineInputBorder()),
                     validator: (val) => val == null || val.isEmpty ? "Digite um nome" : null,
                   ),
                   const SizedBox(height: 20),
 
-                  // --- Categoria (Dropdown) ---
                   const Text("Categoria:", style: TextStyle(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
                   DropdownButtonFormField<int>(
@@ -128,7 +146,6 @@ class _FormScreenState extends State<FormScreen> {
                   ),
                   const SizedBox(height: 20),
 
-                  // --- Bandeiras (Multi-select Chips) ---
                   const Text("Bandeiras Aceitas:", style: TextStyle(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
                   Wrap(
@@ -161,9 +178,28 @@ class _FormScreenState extends State<FormScreen> {
                     height: 50,
                     child: ElevatedButton(
                       onPressed: _salvar,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.deepPurple,
+                        foregroundColor: Colors.white
+                      ),
                       child: const Text("SALVAR LOCAL", style: TextStyle(fontSize: 18)),
                     ),
-                  )
+                  ),
+
+                  // Botão Excluir grande no final
+                  if (widget.estabelecimento != null) ...[
+                    const SizedBox(height: 15),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: OutlinedButton.icon(
+                        onPressed: _deletar,
+                        icon: const Icon(Icons.delete, color: Colors.red),
+                        label: const Text("Excluir Local", style: TextStyle(color: Colors.red)),
+                        style: OutlinedButton.styleFrom(side: const BorderSide(color: Colors.red)),
+                      ),
+                    ),
+                  ]
                 ],
               ),
             ),
