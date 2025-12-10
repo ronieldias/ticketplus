@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:geolocator/geolocator.dart'; // Para calculo de distancia
 import 'package:sqflite/sqflite.dart';
 import 'database_helper.dart';
 import 'models/estabelecimento.dart';
+import 'screens/login_screen.dart';
+import 'session_manager.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -17,26 +18,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'TicketPlus',
       theme: ThemeData(useMaterial3: true, colorSchemeSeed: Colors.deepPurple),
-      home: const LoginScreen(), // Começa no Login
-    );
-  }
-}
-
-// --- TELA DE LOGIN SIMPLES ---
-class LoginScreen extends StatelessWidget {
-  const LoginScreen({super.key});
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Center(
-        child: ElevatedButton(
-          child: const Text("Entrar (Login Simulado)"),
-          onPressed: () {
-            // Em um app real, verificariamos a tabela 'usuarios' aqui
-            Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const MapaPrincipal()));
-          },
-        ),
-      ),
+      home: const LoginScreen(), 
     );
   }
 }
@@ -50,27 +32,31 @@ class MapaPrincipal extends StatefulWidget {
 
 class _MapaPrincipalState extends State<MapaPrincipal> {
   GoogleMapController? mapController;
-  final LatLng _posicaoInicial = const LatLng(-5.088544, -42.811238); // Exemplo do PDF (IFPI) [cite: 30]
-  Set<Marker> _marcadores = {}; // Conjunto de marcadores [cite: 21]
+  final LatLng _posicaoInicial = const LatLng(-5.088544, -42.811238); 
+  Set<Marker> _marcadores = {}; 
   List<Estabelecimento> _todosEstabelecimentos = [];
 
   // Filtros
-  double _raioKm = 10.0;
   String _busca = "";
 
   @override
   void initState() {
     super.initState();
-    _carregarDados(); // Carrega marcadores ao iniciar [cite: 12]
+    _carregarDados(); 
   }
 
-  // Função para buscar dados do SQLite e criar marcadores
   Future<void> _carregarDados() async {
-    final db = await DatabaseHelper().database;
-    final List<Map<String, dynamic>> maps = await db.query('estabelecimentos');
+    // Agora usamos o método especial que já traz as bandeiras
+    final dados = await DatabaseHelper().buscarTodosEstabelecimentos();
 
     setState(() {
-      _todosEstabelecimentos = List.generate(maps.length, (i) => Estabelecimento.fromMap(maps[i]));
+      _todosEstabelecimentos = List.generate(dados.length, (i) {
+        // Converte o Map do banco para o Objeto usando o helper
+        return Estabelecimento.fromMap(
+          dados[i], 
+          dados[i]['bandeirasIds'] // Passa a lista de IDs de bandeiras
+        );
+      });
       _atualizarMarcadores();
     });
   }
@@ -78,18 +64,15 @@ class _MapaPrincipalState extends State<MapaPrincipal> {
   void _atualizarMarcadores() {
     Set<Marker> novosMarcadores = {};
     for (var est in _todosEstabelecimentos) {
-      // Filtro simples de distância (usando Geolocator ou calculo manual)
-      // Aqui aplicamos apenas se a busca por nome bater
       if (_busca.isEmpty || est.nome.toLowerCase().contains(_busca.toLowerCase())) {
         novosMarcadores.add(
           Marker(
             markerId: MarkerId(est.id.toString()),
             position: LatLng(est.latitude, est.longitude),
-            // A ação de clique vai DENTRO do InfoWindow
             infoWindow: InfoWindow(
               title: est.nome,
-              snippet: "Clique para editar",
-              onTap: () => _abrirFormulario(estabelecimento: est), // <--- Corrigido
+              snippet: "Toque para editar",
+              onTap: () => _abrirFormulario(estabelecimento: est),
             ),
           ),
         );
@@ -101,10 +84,9 @@ class _MapaPrincipalState extends State<MapaPrincipal> {
   }
 
   void _onMapCreated(GoogleMapController controller) {
-    mapController = controller; // [cite: 57, 267]
+    mapController = controller; 
   }
 
-  // Interação com o mapa para criar novo [Requisito: Cadastro interagindo com mapa]
   void _onMapTap(LatLng position) {
     _abrirFormulario(latLong: position);
   }
@@ -127,6 +109,15 @@ class _MapaPrincipalState extends State<MapaPrincipal> {
     return Scaffold(
       appBar: AppBar(
         title: const Text("TicketPlus"),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.exit_to_app),
+            onPressed: () {
+              SessionManager().logout();
+              Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const LoginScreen()));
+            },
+          )
+        ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(60),
           child: Padding(
@@ -136,6 +127,7 @@ class _MapaPrincipalState extends State<MapaPrincipal> {
                 hintText: "Buscar estabelecimento...",
                 fillColor: Colors.white, filled: true,
                 border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.search),
               ),
               onChanged: (val) {
                 _busca = val;
@@ -146,17 +138,18 @@ class _MapaPrincipalState extends State<MapaPrincipal> {
         ),
       ),
       body: GoogleMap(
-        onMapCreated: _onMapCreated, // [cite: 54]
-        initialCameraPosition: CameraPosition(target: _posicaoInicial, zoom: 14.0), // [cite: 56]
-        markers: _marcadores, // [cite: 60]
-        onTap: _onMapTap, // Clique longo ou tap para adicionar
-        myLocationEnabled: true, // [cite: 55]
+        onMapCreated: _onMapCreated,
+        initialCameraPosition: CameraPosition(target: _posicaoInicial, zoom: 14.0), 
+        markers: _marcadores, 
+        onTap: _onMapTap, 
+        myLocationEnabled: true, 
       ),
     );
   }
 }
 
-// --- TELA DE CADASTRO/EDIÇÃO ---
+// --- TELA DE CADASTRO/EDIÇÃO (PROVISÓRIA PARA COMPILAR) ---
+// Na próxima fase vamos melhorar este formulário com os checkboxes
 class FormularioEstabelecimento extends StatefulWidget {
   final Estabelecimento? estabelecimento;
   final LatLng? posicaoInicial;
@@ -170,38 +163,41 @@ class FormularioEstabelecimento extends StatefulWidget {
 class _FormularioEstabelecimentoState extends State<FormularioEstabelecimento> {
   final _formKey = GlobalKey<FormState>();
   final _nomeController = TextEditingController();
-  int _bandeiraId = 1; // Default
   int _categoriaId = 1; // Default
-
+  // Nota: Ainda não colocamos a UI das bandeiras aqui para não complicar este passo.
+  // O app vai salvar, mas sem bandeiras por enquanto.
+  
   @override
   void initState() {
     super.initState();
     if (widget.estabelecimento != null) {
       _nomeController.text = widget.estabelecimento!.nome;
-      _bandeiraId = widget.estabelecimento!.idBandeira;
       _categoriaId = widget.estabelecimento!.idCategoria;
     }
   }
 
   Future<void> _salvar() async {
-    final db = await DatabaseHelper().database;
     final lat = widget.estabelecimento?.latitude ?? widget.posicaoInicial!.latitude;
     final lng = widget.estabelecimento?.longitude ?? widget.posicaoInicial!.longitude;
 
-    final novoEst = Estabelecimento(
-      id: widget.estabelecimento?.id,
-      nome: _nomeController.text,
-      latitude: lat,
-      longitude: lng,
-      idBandeira: _bandeiraId,
-      idCategoria: _categoriaId,
-    );
+    final estData = {
+      'id': widget.estabelecimento?.id, // Null se for novo
+      'nome': _nomeController.text,
+      'latitude': lat,
+      'longitude': lng,
+      'id_categoria': _categoriaId,
+      'criado_por': SessionManager().usuarioLogadoId,
+    };
+
+    // Por enquanto salvamos com lista vazia de bandeiras, pois a UI não existe ainda
+    List<int> bandeirasSelecionadas = widget.estabelecimento?.bandeirasIds ?? [];
 
     if (widget.estabelecimento == null) {
-      await db.insert('estabelecimentos', novoEst.toMap());
+      await DatabaseHelper().inserirEstabelecimento(estData, bandeirasSelecionadas);
     } else {
-      await db.update('estabelecimentos', novoEst.toMap(), where: 'id = ?', whereArgs: [novoEst.id]);
+      await DatabaseHelper().atualizarEstabelecimento(estData, bandeirasSelecionadas);
     }
+    
     if (mounted) Navigator.pop(context);
   }
 
@@ -215,13 +211,12 @@ class _FormularioEstabelecimentoState extends State<FormularioEstabelecimento> {
           key: _formKey,
           child: Column(
             children: [
-              Text("Localização: ${widget.estabelecimento?.latitude ?? widget.posicaoInicial?.latitude}"),
               TextFormField(
                 controller: _nomeController,
                 decoration: const InputDecoration(labelText: "Nome do Estabelecimento"),
               ),
               const SizedBox(height: 20),
-              ElevatedButton(onPressed: _salvar, child: const Text("Salvar"))
+              ElevatedButton(onPressed: _salvar, child: const Text("Salvar (Simplificado)"))
             ],
           ),
         ),
