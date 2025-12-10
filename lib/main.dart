@@ -44,8 +44,12 @@ class MapaPrincipal extends StatefulWidget {
 class _MapaPrincipalState extends State<MapaPrincipal> {
   GoogleMapController? mapController;
   
+  // Posições
   LatLng _centroMapa = const LatLng(-5.08921, -42.8016); 
   LatLng? _minhaPosicao;
+  
+  // Variável para guardar onde a mira está apontando
+  late LatLng _miraCameraPosition;
 
   List<Estabelecimento> _todosEstabelecimentos = [];
   List<Map<String, dynamic>> _categoriasCache = [];
@@ -62,6 +66,7 @@ class _MapaPrincipalState extends State<MapaPrincipal> {
   @override
   void initState() {
     super.initState();
+    _miraCameraPosition = _centroMapa; // Inicializa a mira no centro padrão
     _inicializarApp();
   }
 
@@ -76,6 +81,8 @@ class _MapaPrincipalState extends State<MapaPrincipal> {
         setState(() {
           _minhaPosicao = pos;
           _centroMapa = pos;
+          // Se encontrou GPS, move a mira para lá também
+          _miraCameraPosition = pos; 
         });
       }
     } catch (e) {
@@ -132,7 +139,6 @@ class _MapaPrincipalState extends State<MapaPrincipal> {
         .map((b) => b['nome'].toString())
         .toList();
 
-    // Garante que a UI reapareça se abrir detalhes
     setState(() => _interfaceVisivel = true);
 
     showModalBottomSheet(
@@ -203,9 +209,7 @@ class _MapaPrincipalState extends State<MapaPrincipal> {
     );
   }
 
-  // Novo método para adicionar ao segurar
   void _adicionarNovoLocal(LatLng pos) async {
-    // Vibração leve ou feedback visual seria bom aqui
     await Navigator.push(
       context,
       MaterialPageRoute(
@@ -223,7 +227,7 @@ class _MapaPrincipalState extends State<MapaPrincipal> {
           children: [
             const UserAccountsDrawerHeader(
               accountName: Text("TicketPlus"),
-              accountEmail: Text("Versão 1.1"),
+              accountEmail: Text("Versão 1.2"),
             ),
             ListTile(
               leading: const Icon(Icons.exit_to_app),
@@ -236,8 +240,6 @@ class _MapaPrincipalState extends State<MapaPrincipal> {
           ],
         ),
       ),
-      // AppBar apenas se quiser que ela suma também, senão pode deixar fora do AnimatedOpacity
-      // Para imersão total, usamos body com Stack e removemos AppBar padrão do Scaffold
       body: Stack(
         children: [
           // 1. O Mapa (Fundo)
@@ -245,29 +247,57 @@ class _MapaPrincipalState extends State<MapaPrincipal> {
             onMapCreated: (c) => mapController = c,
             initialCameraPosition: CameraPosition(target: _centroMapa, zoom: 14.0),
             markers: _marcadores,
+            
+            // Habilita bolinha azul e botão de localização
             myLocationEnabled: true,
-            myLocationButtonEnabled: false,
+            myLocationButtonEnabled: true,
+            
+            // Remove controles padrão de zoom para limpar a tela
             zoomControlsEnabled: false,
+            
+            // Atualiza a posição da mira quando o usuário arrasta o mapa
+            onCameraMove: (CameraPosition position) {
+              _miraCameraPosition = position.target;
+            },
+
             // Toque Simples -> Alterna UI
             onTap: (_) {
               setState(() {
                 _interfaceVisivel = !_interfaceVisivel;
               });
             },
-            // Toque Longo -> Adiciona Local
-            onLongPress: _adicionarNovoLocal,
+            // Toque Longo -> Adiciona Local onde tocou (alternativa à mira)
+            onLongPress: (pos) => _adicionarNovoLocal(pos),
           ),
 
-          // 2. Elementos Flutuantes (Busca, Menu) com Animação
+          // 2. MIRA FIXA NO CENTRO (Crosshair)
+          // Usamos IgnorePointer para que o toque passe "através" do ícone e mova o mapa
+          IgnorePointer(
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.add, 
+                    size: 30, 
+                    color: Colors.black.withOpacity(0.7)
+                  ),
+                  // Pequeno ajuste para compensar o tamanho do ícone, se quiser precisão pixel-perfect
+                  const SizedBox(height: 30), 
+                ],
+              ),
+            ),
+          ),
+
+          // 3. Elementos Flutuantes (Busca, Menu) com Animação
           AnimatedOpacity(
             opacity: _interfaceVisivel ? 1.0 : 0.0,
             duration: const Duration(milliseconds: 300),
             child: IgnorePointer(
-              ignoring: !_interfaceVisivel, // Impede clicar quando invisível
+              ignoring: !_interfaceVisivel,
               child: SafeArea(
                 child: Column(
                   children: [
-                    // Top Bar Customizada (substitui AppBar para poder sumir)
                     Padding(
                       padding: const EdgeInsets.all(10.0),
                       child: Row(
@@ -345,15 +375,15 @@ class _MapaPrincipalState extends State<MapaPrincipal> {
         ],
       ),
       
-      // 3. FAB (Botão de adicionar)
+      // 4. FAB (Botão de adicionar usando a MIRA)
       floatingActionButton: AnimatedOpacity(
         opacity: _interfaceVisivel ? 1.0 : 0.0,
         duration: const Duration(milliseconds: 300),
         child: IgnorePointer(
           ignoring: !_interfaceVisivel,
           child: FloatingActionButton(
-            // Mantivemos o FAB como atalho, mas agora ele adiciona na posição do usuário
-            onPressed: () => _adicionarNovoLocal(_minhaPosicao ?? _centroMapa),
+            // AQUI ESTÁ A MUDANÇA: Usa a posição da mira (_miraCameraPosition)
+            onPressed: () => _adicionarNovoLocal(_miraCameraPosition),
             child: const Icon(Icons.add),
           ),
         ),
