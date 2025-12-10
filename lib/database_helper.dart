@@ -59,13 +59,10 @@ class DatabaseHelper {
 
   // --- MÉTODOS DE ESTABELECIMENTO ---
 
-  // Inserção complexa (Salva estabelecimento + vínculos de bandeiras)
   Future<int> inserirEstabelecimento(Map<String, dynamic> estData, List<int> bandeirasIds) async {
     final db = await database;
-    // Insere o local
     int estId = await db.insert('estabelecimentos', estData);
     
-    // Insere os vínculos
     for (int bandId in bandeirasIds) {
       await db.insert('estabelecimento_bandeiras', {
         'id_estabelecimento': estId,
@@ -75,15 +72,11 @@ class DatabaseHelper {
     return estId;
   }
   
-  // Atualização complexa
   Future<void> atualizarEstabelecimento(Map<String, dynamic> estData, List<int> bandeirasIds) async {
     final db = await database;
     int idEst = estData['id'];
 
-    // Atualiza dados básicos
     await db.update('estabelecimentos', estData, where: 'id = ?', whereArgs: [idEst]);
-
-    // Atualiza bandeiras (Apaga todas antigas e insere as novas)
     await db.delete('estabelecimento_bandeiras', where: 'id_estabelecimento = ?', whereArgs: [idEst]);
     
     for (int bandId in bandeirasIds) {
@@ -94,22 +87,37 @@ class DatabaseHelper {
     }
   }
 
-  // Busca completa com as bandeiras
   Future<List<Map<String, dynamic>>> buscarTodosEstabelecimentos() async {
     final db = await database;
     var result = await db.query('estabelecimentos');
     
     List<Map<String, dynamic>> listaFinal = [];
-    
     for (var row in result) {
-      // Cria uma cópia mutável do mapa
       var map = Map<String, dynamic>.from(row);
-      
-      // Busca as bandeiras deste estabelecimento
       var vinculos = await db.query('estabelecimento_bandeiras', 
         where: 'id_estabelecimento = ?', whereArgs: [row['id']]);
       
-      // Adiciona a lista de IDs ao mapa
+      map['bandeirasIds'] = vinculos.map((v) => v['id_bandeira'] as int).toList();
+      listaFinal.add(map);
+    }
+    return listaFinal;
+  }
+
+  // --- MÉTODOS DE BUSCA (NOVO) ---
+  Future<List<Map<String, dynamic>>> buscarPorNome(String termo) async {
+    final db = await database;
+    // Busca nomes que contenham o termo digitado
+    var result = await db.query('estabelecimentos', 
+      where: 'nome LIKE ?', 
+      whereArgs: ['%$termo%']
+    );
+
+    List<Map<String, dynamic>> listaFinal = [];
+    for (var row in result) {
+      var map = Map<String, dynamic>.from(row);
+      var vinculos = await db.query('estabelecimento_bandeiras', 
+        where: 'id_estabelecimento = ?', whereArgs: [row['id']]);
+      
       map['bandeirasIds'] = vinculos.map((v) => v['id_bandeira'] as int).toList();
       listaFinal.add(map);
     }
