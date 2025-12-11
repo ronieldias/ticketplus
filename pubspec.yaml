@@ -12,10 +12,10 @@ dependencies:
   flutter:
     sdk: flutter
 
-  # Ícones estilo iOS (já vinha no projeto original)
+  # Ícones estilo iOS
   cupertino_icons: ^1.0.2
 
-  # --- Novas dependências adicionadas ---
+  # --- Novas dependências ---
   # Para renderizar o mapa com marcadores
   google_maps_flutter: ^2.5.0
 

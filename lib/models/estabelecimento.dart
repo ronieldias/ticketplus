@@ -4,8 +4,8 @@ class Estabelecimento {
   final double latitude;
   final double longitude;
   final int idCategoria;
-  final int? criadoPor; // ID do usuário que criou
-  final List<int> bandeirasIds; // Lista de IDs das bandeiras aceitas
+  final int? criadoPor; // id do usuário que criou
+  final List<int> bandeirasIds; // Lista de ids das bandeiras aceitas
 
   Estabelecimento({
     this.id,
@@ -17,8 +17,7 @@ class Estabelecimento {
     required this.bandeirasIds,
   });
 
-  // Converte objeto para Map (para salvar no banco)
-  // Nota: bandeirasIds não entra aqui, pois fica em outra tabela
+  // transforma objeto em map, para salvar no banco
   Map<String, dynamic> toMap() {
     return {
       'id': id,
@@ -30,7 +29,7 @@ class Estabelecimento {
     };
   }
 
-  // Converte Map (do banco) para Objeto
+  // transforma map para bjeto
   factory Estabelecimento.fromMap(Map<String, dynamic> map, List<int> bandeiras) {
     return Estabelecimento(
       id: map['id'],

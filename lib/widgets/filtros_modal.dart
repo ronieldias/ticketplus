@@ -4,7 +4,7 @@ class FiltrosModal extends StatefulWidget {
   final List<Map<String, dynamic>> todasCategorias;
   final List<Map<String, dynamic>> todasBandeiras;
   
-  // Estado atual dos filtros
+  // estado atual dos filtros
   final int? categoriaSelecionada;
   final List<int> bandeirasSelecionadas;
 
@@ -39,7 +39,7 @@ class _FiltrosModalState extends State<FiltrosModal> {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(16),
-      height: MediaQuery.of(context).size.height * 0.7, // Ocupa 70% da tela
+      height: MediaQuery.of(context).size.height * 0.7, 
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -49,7 +49,7 @@ class _FiltrosModalState extends State<FiltrosModal> {
           Expanded(
             child: ListView(
               children: [
-                // --- Filtro de Categoria ---
+                // filtro de categoria
                 const Text("Categoria:", style: TextStyle(fontWeight: FontWeight.bold)),
                 Wrap(
                   spacing: 8,
@@ -74,7 +74,7 @@ class _FiltrosModalState extends State<FiltrosModal> {
                 ),
                 const SizedBox(height: 20),
 
-                // --- Filtro de Bandeiras ---
+                // Filtro de bandeiras
                 const Text("Bandeiras Aceitas (pelo menos uma):", style: TextStyle(fontWeight: FontWeight.bold)),
                 Wrap(
                   spacing: 8,
@@ -99,7 +99,7 @@ class _FiltrosModalState extends State<FiltrosModal> {
             ),
           ),
           
-          // --- Botões de Ação ---
+          // botões de ação
           Row(
             children: [
               Expanded(

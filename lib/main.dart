@@ -44,11 +44,11 @@ class MapaPrincipal extends StatefulWidget {
 class _MapaPrincipalState extends State<MapaPrincipal> {
   GoogleMapController? mapController;
   
-  // Posições
+  // posições
   LatLng _centroMapa = const LatLng(-5.08921, -42.8016); 
   LatLng? _minhaPosicao;
   
-  // Variável para guardar onde a mira está apontando
+  // variável para guardar onde a mira está apontando
   late LatLng _miraCameraPosition;
 
   List<Estabelecimento> _todosEstabelecimentos = [];
@@ -60,13 +60,13 @@ class _MapaPrincipalState extends State<MapaPrincipal> {
   
   Set<Marker> _marcadores = {}; 
   
-  // Controle de visibilidade da UI (Imersão)
+  // controla visibilidade da UI
   bool _interfaceVisivel = true;
 
   @override
   void initState() {
     super.initState();
-    _miraCameraPosition = _centroMapa; // Inicializa a mira no centro padrão
+    _miraCameraPosition = _centroMapa; // Inicializa a mira no centro padrão. Pendente de ajuste (NAO FUNCIONOU)
     _inicializarApp();
   }
 
@@ -81,7 +81,6 @@ class _MapaPrincipalState extends State<MapaPrincipal> {
         setState(() {
           _minhaPosicao = pos;
           _centroMapa = pos;
-          // Se encontrou GPS, move a mira para lá também
           _miraCameraPosition = pos; 
         });
       }
@@ -242,36 +241,35 @@ class _MapaPrincipalState extends State<MapaPrincipal> {
       ),
       body: Stack(
         children: [
-          // 1. O Mapa (Fundo)
+          // o mapa (no fundo)
           GoogleMap(
             onMapCreated: (c) => mapController = c,
             initialCameraPosition: CameraPosition(target: _centroMapa, zoom: 14.0),
             markers: _marcadores,
             
-            // Habilita bolinha azul e botão de localização
+            // habilita bolinha azul e botão de localização
             myLocationEnabled: true,
             myLocationButtonEnabled: true,
             
-            // Remove controles padrão de zoom para limpar a tela
+            // remove controles padrão de zoom para limpar a tela
             zoomControlsEnabled: false,
             
-            // Atualiza a posição da mira quando o usuário arrasta o mapa
+            // atualiza a posição da mira quando o usuário arrasta o mapa. Pendente de ajuste (NAO FUNCIONOU)
             onCameraMove: (CameraPosition position) {
               _miraCameraPosition = position.target;
             },
 
-            // Toque Simples -> Alterna UI
+            // Toque Simples
             onTap: (_) {
               setState(() {
                 _interfaceVisivel = !_interfaceVisivel;
               });
             },
-            // Toque Longo -> Adiciona Local onde tocou (alternativa à mira)
+            // Toque Longo (adicionar local)
             onLongPress: (pos) => _adicionarNovoLocal(pos),
           ),
 
-          // 2. MIRA FIXA NO CENTRO (Crosshair)
-          // Usamos IgnorePointer para que o toque passe "através" do ícone e mova o mapa
+          // Mira fixa no centro. Pendente de ajuste (NAO FUNCIONOU)
           IgnorePointer(
             child: Center(
               child: Column(
@@ -282,14 +280,13 @@ class _MapaPrincipalState extends State<MapaPrincipal> {
                     size: 30, 
                     color: Colors.black.withOpacity(0.7)
                   ),
-                  // Pequeno ajuste para compensar o tamanho do ícone, se quiser precisão pixel-perfect
                   const SizedBox(height: 30), 
                 ],
               ),
             ),
           ),
 
-          // 3. Elementos Flutuantes (Busca, Menu) com Animação
+          // Elementos Flutuantes (Busca, Menu)
           AnimatedOpacity(
             opacity: _interfaceVisivel ? 1.0 : 0.0,
             duration: const Duration(milliseconds: 300),
@@ -375,14 +372,13 @@ class _MapaPrincipalState extends State<MapaPrincipal> {
         ],
       ),
       
-      // 4. FAB (Botão de adicionar usando a MIRA)
+      // Botão de adicionar usando a MIRA (canto inferior direito). Pendente de ajuste (MIRA NAO FUNCIONOU)
       floatingActionButton: AnimatedOpacity(
         opacity: _interfaceVisivel ? 1.0 : 0.0,
         duration: const Duration(milliseconds: 300),
         child: IgnorePointer(
           ignoring: !_interfaceVisivel,
           child: FloatingActionButton(
-            // AQUI ESTÁ A MUDANÇA: Usa a posição da mira (_miraCameraPosition)
             onPressed: () => _adicionarNovoLocal(_miraCameraPosition),
             child: const Icon(Icons.add),
           ),

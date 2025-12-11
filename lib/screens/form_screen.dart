@@ -79,7 +79,7 @@ class _FormScreenState extends State<FormScreen> {
     }
   }
 
-  // --- FUNÇÃO DE DELETAR ---
+  // -- FUNÇÃO DE DELETAR --
   Future<void> _deletar() async {
     if (widget.estabelecimento == null) return;
 
@@ -99,7 +99,7 @@ class _FormScreenState extends State<FormScreen> {
     if (confirmar == true) {
       await DatabaseHelper().deletarEstabelecimento(widget.estabelecimento!.id!);
       if (mounted) {
-        Navigator.pop(context); // Volta para o mapa
+        Navigator.pop(context); // volta para o mapa
       }
     }
   }
@@ -110,7 +110,7 @@ class _FormScreenState extends State<FormScreen> {
       appBar: AppBar(
         title: Text(widget.estabelecimento == null ? "Novo Local" : "Editar Local"),
         actions: [
-           // Opção extra de deletar na barra superior também, se desejar
+           // deletar na barra superior
            if (widget.estabelecimento != null)
              IconButton(icon: const Icon(Icons.delete), onPressed: _deletar),
         ],
@@ -186,7 +186,7 @@ class _FormScreenState extends State<FormScreen> {
                     ),
                   ),
 
-                  // Botão Excluir grande no final
+                  // Botão excluirno final
                   if (widget.estabelecimento != null) ...[
                     const SizedBox(height: 15),
                     SizedBox(

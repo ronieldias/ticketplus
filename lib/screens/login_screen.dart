@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import '../database_helper.dart';
 import '../session_manager.dart';
-import '../main.dart'; // Para acessar MapaPrincipal
-
+import '../main.dart'; // acessa mapa principal
+ 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -18,6 +18,7 @@ class _LoginScreenState extends State<LoginScreen> {
   void _fazerLogin() async {
     setState(() => _isLoading = true);
     
+    // Valida entrada consultando tabela de usuários
     final db = await DatabaseHelper().database;
     final List<Map> users = await db.query('usuarios', 
       where: 'email = ? AND senha = ?', 
@@ -58,7 +59,7 @@ class _LoginScreenState extends State<LoginScreen> {
             TextField(
               controller: _senhaController,
               decoration: const InputDecoration(labelText: "Senha"),
-              obscureText: true,
+              obscureText: true, //Senha não visível
             ),
             const SizedBox(height: 20),
             _isLoading 

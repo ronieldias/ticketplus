@@ -3,7 +3,6 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 class GpsUtil {
   /// Determina a posição atual do dispositivo.
-  /// Lança exceções se o serviço estiver desabilitado ou permissões negadas.
   static Future<LatLng?> obterLocalizacaoAtual() async {
     bool serviceEnabled;
     LocationPermission permission;
@@ -11,27 +10,27 @@ class GpsUtil {
     // Verifica se o GPS está ligado
     serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
-      return null; // Serviço desabilitado
+      return null; // SE serviço desabilitado
     }
 
     permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied) {
-        return null; // Permissão negada
+        return null; // permissão negada
       }
     }
 
     if (permission == LocationPermission.deniedForever) {
-      return null; // Permissão negada permanentemente
+      return null; // permissão negada permanentemente
     }
 
-    // Pega a posição
+    // pega a posição
     Position position = await Geolocator.getCurrentPosition();
     return LatLng(position.latitude, position.longitude);
   }
 
-  /// Calcula a distância em metros entre dois pontos
+  /// calcula a distância em metros entre dois pontos
   static double calcularDistancia(LatLng p1, LatLng p2) {
     return Geolocator.distanceBetween(
       p1.latitude, 

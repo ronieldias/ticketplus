@@ -15,17 +15,17 @@ class DatabaseHelper {
   }
 
   Future<Database> _initDatabase() async {
-    String path = join(await getDatabasesPath(), 'ticketplus_v3.db'); // Mudei versão do nome para forçar recriação se quiser
+    String path = join(await getDatabasesPath(), 'ticketplus_v3.db'); 
     return await openDatabase(
       path,
       version: 1,
       onCreate: (db, version) async {
-        // 1. Tabelas Básicas
+        // Tabelas Básicas
         await db.execute('CREATE TABLE usuarios(id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT, senha TEXT)');
         await db.execute('CREATE TABLE bandeiras(id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT)');
         await db.execute('CREATE TABLE categorias(id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT)');
         
-        // 2. Tabela Estabelecimentos
+        // Tabela Estabelecimentos
         await db.execute(
             'CREATE TABLE estabelecimentos('
                 'id INTEGER PRIMARY KEY AUTOINCREMENT, '
@@ -36,7 +36,7 @@ class DatabaseHelper {
                 'criado_por INTEGER)'
         );
 
-        // 3. Tabela de Junção (Muitos-para-Muitos)
+        // Tabela de Junção (Muitos-para-Muitos)
         await db.execute(
             'CREATE TABLE estabelecimento_bandeiras('
                 'id_estabelecimento INTEGER, '
@@ -44,11 +44,11 @@ class DatabaseHelper {
                 'PRIMARY KEY (id_estabelecimento, id_bandeira))'
         );
 
-        // 4. Seeds (Dados Iniciais)
+        // Seeds (Dados Iniciais)
         List<String> bands = ['Ticket Restaurante', 'Alelo', 'Sodexo', 'VR', 'Caju', 'Ben Visa', 'Green Card'];
         for (var b in bands) await db.insert('bandeiras', {'nome': b});
 
-        // --- LISTA DE CATEGORIAS ATUALIZADA ---
+        // LISTA DE CATEGORIAS
         List<String> cats = [
           'Supermercado',
           'Padaria',
@@ -68,7 +68,7 @@ class DatabaseHelper {
         ];
         for (var c in cats) await db.insert('categorias', {'nome': c});
 
-        // Usuário Admin
+        // INSERE O USUÁRIO ADMIN NO BANCO
         await db.insert('usuarios', {'email': 'admin', 'senha': '123'});
       },
     );
